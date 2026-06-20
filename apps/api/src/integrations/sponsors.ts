@@ -1,29 +1,30 @@
 import type { ExtractedSignal } from '../data/demo.js';
 import type { AudienceMatch, GtmPlaybookContent, ContentAssetResult, GrowthRecommendationResult } from '../data/demo.js';
 import { DEMO_AUDIENCES, DEMO_GTM_PLAYBOOKS, DEMO_CONTENT_ASSETS, DEMO_GROWTH_RECOMMENDATIONS } from '../data/demo.js';
+import { expandAudienceWithRag } from '../rag/pipeline.js';
+import { isUnifyConfigured } from './unify.js';
 
-/** Unify — Proof Expansion Engine (integration point) */
+/** Unify — Proof Expansion Engine via RAG over /conversations */
 export async function expandAudience(proofQuote: string): Promise<AudienceMatch[]> {
-  if (process.env.UNIFY_API_KEY && process.env.UNIFY_API_URL) {
-    try {
-      const res = await fetch(`${process.env.UNIFY_API_URL}/audiences/expand`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${process.env.UNIFY_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ proof: proofQuote })
-      });
-      if (res.ok) return (await res.json()) as AudienceMatch[];
-    } catch {
-      /* fall through to demo */
-    }
+  try {
+    const { audiences } = await expandAudienceWithRag(proofQuote);
+    if (audiences.length > 0) return audiences;
+  } catch {
+    /* fall through */
   }
 
   if (/recruit|staffing|talent|hours?\s*per\s*week/i.test(proofQuote)) {
     return DEMO_AUDIENCES.slice(0, 3);
   }
   return DEMO_AUDIENCES;
+}
+
+export async function expandAudienceWithContext(proofQuote: string) {
+  return expandAudienceWithRag(proofQuote);
+}
+
+export function isUnifyLive(): boolean {
+  return isUnifyConfigured();
 }
 
 /** GTMengineer.dev — Simulated internal API */
