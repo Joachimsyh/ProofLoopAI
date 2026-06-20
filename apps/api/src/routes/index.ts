@@ -143,6 +143,99 @@ app.post('/api/content/generate', async (c) => {
   });
 });
 
+/** Faxxing — Proof Amplification Engine (fake social media validation endpoint) */
+app.post('/api/faxxing/amplify', async (c) => {
+  const body = await c.req.json<{ signalId: string }>();
+  const signal = getStore().signals.find((s) => s.id === body.signalId);
+  if (!signal) return c.json({ error: 'Signal not found' }, 404);
+
+  const quote = signal.quote.toLowerCase();
+  const hasNumbers = /\d+/.test(quote);
+  const hasCurrency = /[£$€]/.test(quote);
+  const hasPercent = /%/.test(quote);
+  const hasTime = /hours?|weeks?|months?|days?/.test(quote);
+  const hasEmotion = /love|amazing|burnout|incredible|struggled|saved|reduced|jumped/i.test(quote);
+
+  const linkedinScore = Math.min(100, Math.round(
+    40 + (hasNumbers ? 20 : 0) + (hasCurrency ? 15 : 0) + (hasEmotion ? 15 : 0) + (hasPercent ? 10 : 0)
+  ));
+  const twitterScore = Math.min(100, Math.round(
+    30 + (hasNumbers ? 15 : 0) + (hasCurrency ? 10 : 0) + (hasEmotion ? 20 : 0) + (hasTime ? 15 : 0)
+  ));
+  const blogsScore = Math.min(100, Math.round(
+    35 + (hasNumbers ? 25 : 0) + (hasCurrency ? 15 : 0) + (hasPercent ? 15 : 0) + (hasTime ? 10 : 0)
+  ));
+
+  const amplificationScore = Math.round((linkedinScore + twitterScore + blogsScore) / 3);
+
+  const platformScores = { linkedin: linkedinScore, twitter: twitterScore, industryBlogs: blogsScore };
+
+  const matchedKeywords: string[] = [];
+  if (hasCurrency) matchedKeywords.push('ROI');
+  if (hasNumbers) matchedKeywords.push('quantifiable results');
+  if (hasPercent) matchedKeywords.push('growth metrics');
+  if (hasTime) matchedKeywords.push('time savings');
+  if (hasEmotion) matchedKeywords.push('customer impact');
+  if (/save|saving|saved|reduce|reduced|reduction/i.test(quote)) matchedKeywords.push('cost reduction');
+  if (/convert|conversion|increase|jump|up\s*\d+/i.test(quote)) matchedKeywords.push('conversion optimization');
+
+  const recommendations: { type: string; platform: string; score: number; headline: string }[] = [];
+  if (linkedinScore >= 70) {
+    recommendations.push({
+      type: 'linkedin', platform: 'LinkedIn', score: linkedinScore,
+      headline: `${hasCurrency ? 'ROI' : 'Customer'} Proof That Gets Engagement on LinkedIn`
+    });
+  }
+  if (blogsScore >= 70) {
+    recommendations.push({
+      type: 'thought_leadership', platform: 'LinkedIn Article', score: blogsScore,
+      headline: 'The Data Behind Our Growth — A Proof-Led Case Study'
+    });
+  }
+  if (twitterScore >= 60) {
+    recommendations.push({
+      type: 'social', platform: 'Twitter/X', score: twitterScore,
+      headline: `${hasNumbers ? '£' : ''}Real numbers, real impact — a quick thread`
+    });
+  }
+  recommendations.push({
+    type: 'email', platform: 'Email Campaign', score: Math.round((linkedinScore + blogsScore) / 2),
+    headline: `Subject: How we ${hasCurrency ? 'saved £X,XXX' : 'delivered results'} — real customer data`
+  });
+
+  const matchedSocial: { platform: string; content: string; engagement: string }[] = [];
+  if (linkedinScore > 70) {
+    matchedSocial.push({
+      platform: 'LinkedIn',
+      content: `Founder post on similar ${signal.category.toLowerCase()} proof gaining traction in B2B SaaS circles`,
+      engagement: `${Math.round(1200 + amplificationScore * 30)}+ impressions`
+    });
+  }
+  if (blogsScore > 70) {
+    matchedSocial.push({
+      platform: 'Industry Blogs',
+      content: `Case study featuring ${signal.signalType.toLowerCase()} metrics trending in ${signal.category === 'Financial Impact' ? 'finance' : 'operations'} publications`,
+      engagement: 'Featured in 3+ industry newsletters'
+    });
+  }
+
+  return c.json({
+    signalId: signal.id,
+    quote: signal.quote,
+    category: signal.category,
+    signalType: signal.signalType,
+    amplificationScore,
+    platformScores,
+    contentRecommendations: recommendations,
+    matchedKeywords,
+    matchedSocialProof: matchedSocial,
+    validation: amplificationScore >= 60 ? 'validated' : 'needs_improvement',
+    amplifiedContent: hasCurrency
+      ? `💰 ${signal.quote}\n\nThis isn't a hypothetical. This is real data from a real customer.\n\nProof-led GTM means leading with evidence, not adjectives.\n\n#SaaS #GTM #CustomerProof`
+      : `📊 ${signal.quote}\n\nCustomer proof like this is hiding in your inbox, support tickets, and sales calls.\n\nDiscover yours. →`
+  });
+});
+
 app.get('/api/crm', (c) => c.json(getStore().crmEntries));
 
 app.post('/api/crm/sync', async (c) => {

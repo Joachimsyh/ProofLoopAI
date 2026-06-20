@@ -96,5 +96,43 @@ export const api = {
     });
   },
   getSampleDatasets: () => request<{ id: string; name: string; type: string }[]>('/api/demo/sample-datasets'),
-  resetDemo: () => request('/api/demo/reset', { method: 'POST' })
+  resetDemo: () => request('/api/demo/reset', { method: 'POST' }),
+  amplifyProof: (signalId: string) =>
+    request<FaxxingAmplifyResult>('/api/faxxing/amplify', {
+      method: 'POST',
+      body: JSON.stringify({ signalId })
+    })
 };
+
+export interface FaxxingPlatformScores {
+  linkedin: number;
+  twitter: number;
+  industryBlogs: number;
+}
+
+export interface FaxxingContentRecommendation {
+  type: string;
+  platform: string;
+  score: number;
+  headline: string;
+}
+
+export interface FaxxingSocialMatch {
+  platform: string;
+  content: string;
+  engagement: string;
+}
+
+export interface FaxxingAmplifyResult {
+  signalId: string;
+  quote: string;
+  category: string;
+  signalType: string;
+  amplificationScore: number;
+  platformScores: FaxxingPlatformScores;
+  contentRecommendations: FaxxingContentRecommendation[];
+  matchedKeywords: string[];
+  matchedSocialProof: FaxxingSocialMatch[];
+  validation: 'validated' | 'needs_improvement';
+  amplifiedContent: string;
+}
