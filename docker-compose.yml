@@ -1,0 +1,60 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: proofloop-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: proofloop
+      POSTGRES_PASSWORD: proofloop
+      POSTGRES_DB: proofloop
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U proofloop"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  typesense:
+    image: typesense/typesense:27.1
+    container_name: proofloop-typesense
+    restart: unless-stopped
+    environment:
+      TYPESENSE_DATA_DIR: /data
+      TYPESENSE_API_KEY: proofloop-typesense-key
+      TYPESENSE_ENABLE_CORS: "true"
+    ports:
+      - "8108:8108"
+    volumes:
+      - typesense_data:/data
+    command: "--data-dir /data --api-key=proofloop-typesense-key --enable-cors"
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: proofloop-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: proofloop
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.116.1
+    container_name: proofloop-otel
+    restart: unless-stopped
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - ./infra/otel-collector.yaml:/etc/otelcol-contrib/config.yaml
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+
+volumes:
+  postgres_data:
+  typesense_data:
+  grafana_data:
