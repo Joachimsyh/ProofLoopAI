@@ -28,14 +28,33 @@ export interface TrustSignal extends ExtractedSignal {
   createdAt: string;
 }
 
+export interface CrmSyncState {
+  status: 'not_synced' | 'not_configured' | 'synced' | 'failed';
+  zeroId?: string;
+  zeroUrl?: string;
+  error?: string;
+  lastSyncedAt?: string;
+}
+
+export interface CrmEntry {
+  id: string;
+  entityType: string;
+  entityId: string;
+  title: string;
+  status: string;
+  conversionOutcome?: string;
+  createdAt: string;
+  zeroSync: CrmSyncState;
+}
+
 export interface Store {
   workspaceId: string;
   sources: ProofSource[];
   signals: TrustSignal[];
   audiences: (AudienceMatch & { id: string; trustSignalId?: string })[];
-  playbooks: typeof DEMO_GTM_PLAYBOOKS & { id: string }[];
+  playbooks: (typeof DEMO_GTM_PLAYBOOKS[number] & { id: string })[];
   contentAssets: (ContentAssetResult & { id: string; trustSignalId?: string })[];
-  crmEntries: { id: string; entityType: string; entityId: string; title: string; status: string; conversionOutcome?: string; createdAt: string }[];
+  crmEntries: CrmEntry[];
   recommendations: (GrowthRecommendationResult & { id: string })[];
   settings: { demoMode: boolean; aiProvider: string; integrations: Record<string, boolean> };
 }
@@ -44,6 +63,8 @@ const WORKSPACE_ID = 'demo-workspace-001';
 
 function initStore(): Store {
   const now = new Date().toISOString();
+  const zeroConfigured = !!process.env.ZERO_API_KEY;
+  const defaultSyncStatus: CrmSyncState = zeroConfigured ? { status: 'not_synced' } : { status: 'not_configured', error: 'Add ZERO_API_KEY and ZERO_API_URL to .env to sync.' };
   return {
     workspaceId: WORKSPACE_ID,
     sources: DEMO_SOURCES.map((s, i) => ({
@@ -75,11 +96,11 @@ function initStore(): Store {
       ...c
     })),
     crmEntries: [
-      { id: 'crm-1', entityType: 'trust_signal', entityId: 'signal-1', title: '£40K Savings — Landing Page Hero', status: 'deployed', conversionOutcome: '+34% CVR', createdAt: now },
-      { id: 'crm-2', entityType: 'content_asset', entityId: 'content-1', title: 'Founder LinkedIn Post', status: 'published', conversionOutcome: '2.4K impressions', createdAt: now },
-      { id: 'crm-3', entityType: 'gtm_playbook', entityId: 'playbook-1', title: 'Recruitment ICP Outbound', status: 'active', conversionOutcome: '12 meetings booked', createdAt: now },
-      { id: 'crm-4', entityType: 'trust_signal', entityId: 'signal-2', title: '12hrs/week — SDR Deck', status: 'active', createdAt: now },
-      { id: 'crm-5', entityType: 'content_asset', entityId: 'content-3', title: 'TalentFlow Case Study', status: 'draft', createdAt: now }
+      { id: 'crm-1', entityType: 'trust_signal', entityId: 'signal-1', title: '£40K Savings — Landing Page Hero', status: 'deployed', conversionOutcome: '+34% CVR', createdAt: now, zeroSync: { ...defaultSyncStatus } },
+      { id: 'crm-2', entityType: 'content_asset', entityId: 'content-1', title: 'Founder LinkedIn Post', status: 'published', conversionOutcome: '2.4K impressions', createdAt: now, zeroSync: { ...defaultSyncStatus } },
+      { id: 'crm-3', entityType: 'gtm_playbook', entityId: 'playbook-1', title: 'Recruitment ICP Outbound', status: 'active', conversionOutcome: '12 meetings booked', createdAt: now, zeroSync: { ...defaultSyncStatus } },
+      { id: 'crm-4', entityType: 'trust_signal', entityId: 'signal-2', title: '12hrs/week — SDR Deck', status: 'active', createdAt: now, zeroSync: { ...defaultSyncStatus } },
+      { id: 'crm-5', entityType: 'content_asset', entityId: 'content-3', title: 'TalentFlow Case Study', status: 'draft', createdAt: now, zeroSync: { ...defaultSyncStatus } }
     ],
     recommendations: DEMO_GROWTH_RECOMMENDATIONS.map((r, i) => ({
       id: `rec-${i + 1}`,
@@ -130,6 +151,13 @@ export function addSignals(signals: Omit<TrustSignal, 'id' | 'createdAt'>[]) {
   }));
   store.signals.unshift(...entries);
   return entries;
+}
+
+export function updateCrmEntryZeroSync(id: string, zeroSync: CrmSyncState) {
+  const entry = store.crmEntries.find((item) => item.id === id);
+  if (!entry) return undefined;
+  entry.zeroSync = zeroSync;
+  return entry;
 }
 
 export { DEMO_ANALYTICS, WORKSPACE_ID };
