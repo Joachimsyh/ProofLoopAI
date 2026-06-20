@@ -1,15 +1,29 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { getStore, addSource, addSignals, addPlaybook, addFeedback, getGtmMetrics, DEMO_ANALYTICS, resetStore, WORKSPACE_ID } from '../store/memory.js';
-import { runProofDiscoveryPipeline, parseFileContent } from '../ai/pipeline.js';
+import { getStore, addSource, addSignals, DEMO_ANALYTICS, resetStore, WORKSPACE_ID } from '../store/memory.js';
+import { parseFileContent, validateUploadFile, FileParseError } from '../ai/file-parser.js';
 import {
-  expandAudience,
+  expandAudienceWithContext,
   generateGtmSystem,
   amplifyProof,
   syncToZero,
   getGrowthRecommendations,
-  validateProof
+  validateProof,
+  isUnifyLive
 } from '../integrations/sponsors.js';
+import {
+  ingestUnifyConversations,
+  ragQuery,
+  getRagStatus,
+  discoverProofWithRag,
+  discoverFromDemoData,
+  getDemoDataSummary
+} from '../rag/pipeline.js';
+import { SUPPORTED_UPLOAD_TYPES, SUPPORTED_PASTE_TYPES } from '../rag/supported-types.js';
+import { loadDemoSources } from '../rag/demo-data-loader.js';
+import { cleanTrustSignals } from '../utils/signals.js';
+import { fetchUnifyConversations } from '../integrations/unify.js';
+import { validateProofOnSocialMedia, getFaxxingStatus } from '../integrations/faxxing.js';
 
 const app = new Hono();
 
@@ -43,8 +57,12 @@ app.post('/api/sources/text', async (c) => {
     status: 'processing'
   });
 
-  const extracted = await runProofDiscoveryPipeline(body.content);
-  const validated = await Promise.all(extracted.map((s) => validateProof(s)));
+  const discovery = await discoverProofWithRag(body.content, {
+    sourceId: source.id,
+    title: source.title,
+    type: source.type
+  });
+  const validated = await Promise.all(discovery.signals.map((s) => validateProof(s)));
   const signals = addSignals(
     validated.map((s) => ({ workspaceId: WORKSPACE_ID, sourceId: source.id, ...s }))
   );
@@ -52,47 +70,90 @@ app.post('/api/sources/text', async (c) => {
   source.status = 'processed';
   await syncToZero({ type: 'source', source, signals });
 
-  return c.json({ source, signals, count: signals.length });
+  return c.json({ source, signals, count: signals.length, rag: discovery });
 });
 
 app.post('/api/sources/upload', async (c) => {
-  const form = await c.req.parseBody();
-  const file = form['file'];
-  if (!file || !(file instanceof File)) return c.json({ error: 'File is required' }, 400);
+  try {
+    const form = await c.req.parseBody();
+    const file = form['file'];
+    if (!file || !(file instanceof File)) return c.json({ error: 'File is required' }, 400);
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const content = await parseFileContent(buffer, file.name);
+    validateUploadFile(file.name, file.size);
 
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const parsed = await parseFileContent(buffer, file.name);
+
+    if (!parsed.text.trim()) {
+      return c.json({
+        error: 'No readable text found in file. Try a text-based PDF, .txt, or .csv with customer quotes.',
+        warnings: parsed.warnings
+      }, 422);
+    }
+
+    const source = addSource({
+      workspaceId: WORKSPACE_ID,
+      type: file.name.split('.').pop()?.toLowerCase() ?? 'file',
+      title: file.name,
+      content: parsed.text,
+      fileName: file.name,
+      status: 'processing'
+    });
+
+    const discovery = await discoverProofWithRag(parsed.text, {
+      sourceId: source.id,
+      title: source.title,
+      type: source.type
+    });
+    const validated = await Promise.all(discovery.signals.map((s) => validateProof(s)));
+    const signals = addSignals(
+      validated.map((s) => ({ workspaceId: WORKSPACE_ID, sourceId: source.id, ...s }))
+    );
+
+    source.status = 'processed';
+    return c.json({
+      source,
+      signals,
+      count: signals.length,
+      rag: discovery,
+      file: { name: file.name, size: file.size, parser: parsed.parser },
+      warnings: parsed.warnings
+    });
+  } catch (e) {
+    const message = e instanceof FileParseError || e instanceof Error ? e.message : 'Upload failed';
+    const status = e instanceof FileParseError ? 400 : 500;
+    console.error('[upload]', message);
+    return c.json({ error: message }, status);
+  }
+});
+
+app.post('/api/discovery/demo', async (c) => {
+  const discovery = await discoverFromDemoData();
   const source = addSource({
     workspaceId: WORKSPACE_ID,
-    type: file.name.split('.').pop() ?? 'file',
-    title: file.name,
-    content,
-    fileName: file.name,
+    type: 'demo',
+    title: 'Demo Data Scan',
+    content: 'Auto-discovered from demo-data folder',
     status: 'processing'
   });
-
-  const extracted = await runProofDiscoveryPipeline(content);
-  const validated = await Promise.all(extracted.map((s) => validateProof(s)));
+  const validated = await Promise.all(discovery.signals.map((s) => validateProof(s)));
   const signals = addSignals(
     validated.map((s) => ({ workspaceId: WORKSPACE_ID, sourceId: source.id, ...s }))
   );
-
   source.status = 'processed';
-  return c.json({ source, signals, count: signals.length });
+  return c.json({ source, signals, count: signals.length, rag: discovery });
 });
 
 app.post('/api/discovery/run', async (c) => {
   const body = await c.req.json<{ content: string }>();
-  const extracted = await runProofDiscoveryPipeline(body.content ?? '');
-  const validated = await Promise.all(extracted.map((s) => validateProof(s)));
-  return c.json({ signals: validated });
+  const discovery = await discoverProofWithRag(body.content ?? '', { sourceId: `temp-${Date.now()}`, title: 'Discovery Run', type: 'paste' });
+  const validated = await Promise.all(discovery.signals.map((s) => validateProof(s)));
+  return c.json({ signals: validated, rag: discovery });
 });
 
 app.get('/api/trust-signals', (c) => {
   const store = getStore();
-  const sorted = [...store.signals].sort((a, b) => b.proofScore - a.proofScore);
-  return c.json(sorted);
+  return c.json(cleanTrustSignals([...store.signals].sort((a, b) => b.proofScore - a.proofScore)));
 });
 
 app.get('/api/trust-signals/:id', (c) => {
@@ -113,8 +174,53 @@ app.get('/api/audiences', (c) => c.json(getStore().audiences));
 
 app.post('/api/audiences/expand', async (c) => {
   const body = await c.req.json<{ proofQuote: string; signalId?: string }>();
-  const audiences = await expandAudience(body.proofQuote);
-  return c.json({ audiences, poweredBy: process.env.UNIFY_API_KEY ? 'unify' : 'demo' });
+  const { audiences, ragContext } = await expandAudienceWithContext(body.proofQuote);
+  return c.json({
+    audiences,
+    ragContext,
+    poweredBy: isUnifyLive() ? 'unify' : ragContext.source === 'demo' ? 'demo' : 'rag'
+  });
+});
+
+/** RAG Pipeline endpoints */
+app.get('/api/rag/status', (c) => c.json(getRagStatus()));
+
+app.post('/api/rag/ingest', async (c) => {
+  const body = await c.req.json<{ force?: boolean }>().catch(() => ({ force: false }));
+  const result = await ingestUnifyConversations(body.force ?? false);
+  return c.json(result);
+});
+
+app.post('/api/rag/query', async (c) => {
+  const body = await c.req.json<{ query: string; topK?: number }>();
+  if (!body.query?.trim()) return c.json({ error: 'Query is required' }, 400);
+  const result = await ragQuery(body.query, body.topK ?? 5);
+  return c.json(result);
+});
+
+app.get('/api/unify/conversations', async (c) => {
+  try {
+    const data = await fetchUnifyConversations();
+    return c.json(data);
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : 'Failed to fetch conversations' }, 502);
+  }
+});
+
+app.get('/api/rag/supported-types', (c) =>
+  c.json({ uploads: SUPPORTED_UPLOAD_TYPES, pasteTypes: SUPPORTED_PASTE_TYPES })
+);
+
+app.get('/api/rag/demo-data', (c) => c.json(getDemoDataSummary()));
+
+/** Faxxing — Simulated social media proof validation */
+app.get('/api/faxxing/status', (c) => c.json(getFaxxingStatus()));
+
+app.post('/api/faxxing/validate', async (c) => {
+  const body = await c.req.json<{ quote: string; signalId?: string }>();
+  if (!body.quote?.trim()) return c.json({ error: 'quote is required' }, 400);
+  const result = await validateProofOnSocialMedia(body.quote.trim());
+  return c.json(result);
 });
 
 app.get('/api/gtm-playbooks', (c) => c.json({ playbooks: getStore().playbooks, metrics: getGtmMetrics() }));
@@ -225,13 +331,14 @@ app.post('/api/demo/reset', (c) => {
 });
 
 app.get('/api/demo/sample-datasets', (c) => {
-  return c.json([
-    { id: 'enterprise-email', name: 'Enterprise Customer Email', type: 'email' },
-    { id: 'g2-review', name: 'G2 Review Bundle', type: 'review' },
-    { id: 'sales-transcript', name: 'Sales Call Transcript', type: 'transcript' },
-    { id: 'nps-survey', name: 'NPS Survey Responses', type: 'survey' },
-    { id: 'support-tickets', name: 'Support Ticket Archive', type: 'support' }
-  ]);
+  return c.json(
+    loadDemoSources().map((s) => ({
+      id: s.id,
+      name: s.title,
+      type: s.type,
+      content: s.content
+    }))
+  );
 });
 
 export default app;

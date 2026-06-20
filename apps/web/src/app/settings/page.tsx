@@ -13,7 +13,7 @@ interface Settings {
 }
 
 const integrations = [
-  { key: 'unify', name: 'Unify', role: 'Proof Expansion Engine', envKeys: ['UNIFY_API_KEY', 'UNIFY_API_URL'] },
+  { key: 'unify', name: 'Unify', role: 'Proof Expansion Engine (RAG over /conversations)', envKeys: ['UNIFY_API_KEY', 'UNIFY_API_URL'], note: 'GET {base}/conversations · Bearer auth' },
   { key: 'gtmengineer', name: 'GTMengineer.dev', role: 'GTM System Generator', envKeys: ['GTMENGINEER_API_KEY', 'GTMENGINEER_API_URL'], note: 'Simulated internally' },
   { key: 'faxxing', name: 'Faxxing', role: 'Proof Amplification Engine', envKeys: ['FAXXING_API_KEY', 'FAXXING_API_URL'] },
   { key: 'zero', name: 'Zero', role: 'Proof CRM', envKeys: ['ZERO_API_KEY', 'ZERO_API_URL'] },
