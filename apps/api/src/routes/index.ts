@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { getStore, addSource, addSignals, DEMO_ANALYTICS, resetStore, WORKSPACE_ID } from '../store/memory.js';
+import { getStore, addSource, addSignals, addPlaybook, addFeedback, getGtmMetrics, DEMO_ANALYTICS, resetStore, WORKSPACE_ID } from '../store/memory.js';
 import { runProofDiscoveryPipeline, parseFileContent } from '../ai/pipeline.js';
 import {
   expandAudience,
@@ -117,17 +117,63 @@ app.post('/api/audiences/expand', async (c) => {
   return c.json({ audiences, poweredBy: process.env.UNIFY_API_KEY ? 'unify' : 'demo' });
 });
 
-app.get('/api/gtm-playbooks', (c) => c.json(getStore().playbooks));
+app.get('/api/gtm-playbooks', (c) => c.json({ playbooks: getStore().playbooks, metrics: getGtmMetrics() }));
 
 app.post('/api/gtmengineer/generate', async (c) => {
   const store = getStore();
   const playbooks = await generateGtmSystem(store.signals.slice(0, 5));
+  const saved = playbooks.map((p) => addPlaybook(p));
   return c.json({
-    playbooks,
+    playbooks: saved,
     poweredBy: 'gtmengineer.dev',
     message: 'GTMengineer.dev powers our GTM System Generator'
   });
 });
+
+app.post('/api/gtm/generate', async (c) => {
+  const store = getStore();
+  const topSignals = [...store.signals].sort((a, b) => b.proofScore - a.proofScore).slice(0, 3);
+
+  const recs = await getGrowthRecommendations(topSignals);
+  const generated = await generateGtmSystem(topSignals);
+
+  const nextActions = (recs ?? []).slice(0, 3).map((r) => ({
+    action: r.title,
+    impact: r.priority === 'high' ? 'High' : r.priority === 'medium' ? 'Medium' : 'Low',
+    effort: r.effort <= 25 ? 'Low' : r.effort <= 50 ? 'Medium' : 'High',
+    source: process.env.SCAILE_API_KEY ? 'Scaile' : 'GTM System'
+  }));
+
+  const playbook = {
+    ...generated[0],
+    content: {
+      ...generated[0].content,
+      nextActions: [...nextActions, ...generated[0].content.nextActions.slice(0, 1)]
+    }
+  };
+
+  const saved = addPlaybook(playbook);
+  return c.json({
+    playbook: saved,
+    signalsUsed: topSignals.map((s) => ({ id: s.id, quote: s.quote, proofScore: s.proofScore, signalType: s.signalType })),
+    metrics: getGtmMetrics(),
+    poweredBy: process.env.SCAILE_API_KEY ? 'scaile' : 'demo'
+  });
+});
+
+app.post('/api/gtm/feedback', async (c) => {
+  const body = await c.req.json<{ playbookId: string; actionIndex?: number; rating: 'helpful' | 'not_helpful'; comment?: string }>();
+  if (!body.playbookId || !body.rating) return c.json({ error: 'playbookId and rating are required' }, 400);
+  const entry = addFeedback({
+    playbookId: body.playbookId,
+    actionIndex: body.actionIndex,
+    rating: body.rating,
+    comment: body.comment
+  });
+  return c.json({ feedback: entry, metrics: getGtmMetrics() });
+});
+
+app.get('/api/gtm/metrics', (c) => c.json(getGtmMetrics()));
 
 app.get('/api/content', (c) => c.json(getStore().contentAssets));
 

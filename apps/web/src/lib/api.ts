@@ -67,8 +67,13 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ proofQuote })
     }),
-  getGtmPlaybooks: () => request<unknown[]>('/api/gtm-playbooks'),
+  getGtmPlaybooks: () => request<{ playbooks: unknown[]; metrics: unknown }>('/api/gtm-playbooks'),
   generateGtm: () => request<{ playbooks: unknown[]; poweredBy: string }>('/api/gtmengineer/generate', { method: 'POST' }),
+  generateGtmFromSignals: () =>
+    request<{ playbook: unknown; signalsUsed: unknown[]; metrics: unknown; poweredBy: string }>('/api/gtm/generate', { method: 'POST' }),
+  submitGtmFeedback: (data: { playbookId: string; actionIndex?: number; rating: 'helpful' | 'not_helpful'; comment?: string }) =>
+    request<{ feedback: unknown; metrics: unknown }>('/api/gtm/feedback', { method: 'POST', body: JSON.stringify(data) }),
+  getGtmMetrics: () => request<unknown>('/api/gtm/metrics'),
   getContent: () => request<unknown[]>('/api/content'),
   generateContent: (signalId: string) =>
     request<{ assets: unknown[]; poweredBy: string }>('/api/content/generate', {
