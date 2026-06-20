@@ -183,15 +183,14 @@ When no playbooks exist, a dashed-border card prompts the user to generate their
 
 ### What SCAILE Is
 
-SCAILE is an AI-powered GTM intelligence platform that provides:
+SCAILE is an AI-search visibility platform focused on **GEO (Generative Engine Optimization)** — optimizing content so it gets cited by AI-powered search engines like ChatGPT, Perplexity, Google AI Overviews, and Gemini. It provides:
+- AI-search visibility / GEO tracking
 - Social listening (Reddit, LinkedIn, forums, web conversations)
 - Competitor intelligence
 - Customer intent analysis
-- AI visibility / AEO tracking
 - Content opportunity discovery
 - Sentiment tracking
 - Market trend detection
-- GTM workflow automation
 
 ### Why SCAILE Matters for This Feature
 
@@ -199,7 +198,7 @@ The Auto-GTM Generator is built around a feedback loop between **your proof** (t
 
 1. **From static to dynamic** — Without SCAILE, the generator produces good GTM playbooks based on your signals. With SCAILE, those playbooks are ranked by what's happening in the market *right now*.
 
-2. **Action prioritization** — SCAILE's recommendation engine evaluates which GTM actions will have the highest impact given current market conditions, competitor activity, and customer intent signals.
+2. **Action prioritization** — SCAILE evaluates which GTM actions will have the highest impact given current market conditions, competitor activity, and customer intent signals.
 
 3. **Live data drives decisions** — The generator integrates SCAILE via `getGrowthRecommendations()` in `apps/api/src/integrations/sponsors.ts`:
    - When `SCAILE_API_KEY` and `SCAILE_API_URL` are set in `.env`, the generator POSTs your top signals to SCAILE's recommendation endpoint
@@ -217,8 +216,8 @@ Your Trust Signals
        ▼
   POST /recommendations  ──►  SCAILE API
        │                          │
-       │                    Market analysis
-       │                    Competitor tracking
+       │                    AI-search visibility analysis
+       │                    GEO opportunity scoring
        │                    Intent scoring
        │                          │
        ▼                          ▼

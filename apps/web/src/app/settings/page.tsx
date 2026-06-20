@@ -18,7 +18,7 @@ const integrations = [
   { key: 'faxxing', name: 'Faxxing', role: 'Proof Amplification Engine', envKeys: ['FAXXING_API_KEY', 'FAXXING_API_URL'] },
   { key: 'zero', name: 'Zero', role: 'Proof CRM', envKeys: ['ZERO_API_KEY', 'ZERO_API_URL'] },
   { key: 'lightfern', name: 'Lightfern', role: 'Proof Validation Engine', envKeys: ['LIGHTFERN_API_KEY', 'LIGHTFERN_API_URL'] },
-  { key: 'scaile', name: 'Scaile', role: 'Growth Recommendation Engine', envKeys: ['SCAILE_API_KEY', 'SCAILE_API_URL'] }
+  { key: 'scaile', name: 'Scaile', role: 'AI-search visibility (GEO)', envKeys: ['SCAILE_API_KEY', 'SCAILE_API_URL'] }
 ];
 
 export default function SettingsPage() {

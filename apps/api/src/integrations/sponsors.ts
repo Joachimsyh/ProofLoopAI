@@ -162,7 +162,7 @@ export async function syncToZero(entity: Record<string, unknown>): Promise<{ syn
   return { synced: false };
 }
 
-/** Scaile — Growth Recommendation Engine (integration point) */
+/** Scaile — AI-search visibility (GEO) (integration point) */
 export async function getGrowthRecommendations(signals: ExtractedSignal[]): Promise<GrowthRecommendationResult[]> {
   if (process.env.SCAILE_API_KEY && process.env.SCAILE_API_URL) {
     try {
