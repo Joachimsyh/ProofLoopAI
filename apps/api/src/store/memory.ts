@@ -45,6 +45,8 @@ export interface CrmEntry {
   conversionOutcome?: string;
   createdAt: string;
   zeroSync: CrmSyncState;
+}
+
 export interface FeedbackEntry {
   id: string;
   playbookId: string;

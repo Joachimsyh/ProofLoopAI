@@ -1,11 +1,9 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Context } from 'hono';
-import { getStore, addSource, addSignals, DEMO_ANALYTICS, resetStore, WORKSPACE_ID, updateCrmEntryZeroSync } from '../store/memory.js';
+import { getStore, addSource, addSignals, DEMO_ANALYTICS, resetStore, WORKSPACE_ID, updateCrmEntryZeroSync, addPlaybook, addFeedback, getGtmMetrics } from '../store/memory.js';
 import type { CrmEntry } from '../store/memory.js';
-import { runProofDiscoveryPipeline, parseFileContent } from '../ai/pipeline.js';
 import { getZeroSyncStatesForEntries, saveZeroSyncResult } from '../db/zeroSync.js';
-import { getStore, addSource, addSignals, DEMO_ANALYTICS, resetStore, WORKSPACE_ID, addPlaybook, addFeedback, getGtmMetrics } from '../store/memory.js';
 import { parseFileContent, validateUploadFile, FileParseError } from '../ai/file-parser.js';
 import {
   expandAudienceWithContext,
@@ -31,6 +29,8 @@ import { resetUnifyNotifications } from '../integrations/unify-notifications.js'
 import { fetchUnifyConversations } from '../integrations/unify.js';
 import { validateProofOnSocialMedia, getFaxxingStatus } from '../integrations/faxxing.js';
 import unifyNotificationsRoutes from './unify-notifications.js';
+import unifyAnalyticsRoutes from './unify-analytics.js';
+import { emitProofEvent } from '../integrations/unify-analytics.js';
 
 const app = new Hono();
 const rateLimitBuckets = new Map<string, { count: number; windowStart: number }>();
@@ -144,6 +144,12 @@ app.post('/api/sources/text', async (c) => {
     signals: signals as unknown as Record<string, unknown>[]
   });
 
+  emitProofEvent(
+    'Proof Discovered',
+    { sourceId: source.id, sourceType: source.type, signalCount: signals.length, topSignalType: signals[0]?.signalType, topProofScore: signals[0]?.proofScore },
+    WORKSPACE_ID
+  );
+
   return c.json({ source, signals, count: signals.length, rag: discovery });
 });
 
@@ -215,6 +221,11 @@ app.post('/api/discovery/demo', async (c) => {
     validated.map((s) => ({ workspaceId: WORKSPACE_ID, sourceId: source.id, ...s }))
   );
   source.status = 'processed';
+  emitProofEvent(
+    'Proof Discovered',
+    { sourceId: source.id, sourceType: 'demo', signalCount: signals.length, topSignalType: signals[0]?.signalType, topProofScore: signals[0]?.proofScore },
+    WORKSPACE_ID
+  );
   return c.json({ source, signals, count: signals.length, rag: discovery });
 });
 
@@ -284,6 +295,9 @@ app.get('/api/unify/conversations', async (c) => {
 /** Unify — Simulated Mitel Notifications API (no CloudLink tokens required) */
 app.route('/api/unify/notifications', unifyNotificationsRoutes);
 
+/** Unify GTM — Analytics API (intent events: page/track/identify) */
+app.route('/api/unify/analytics', unifyAnalyticsRoutes);
+
 app.get('/api/rag/supported-types', (c) =>
   c.json({ uploads: SUPPORTED_UPLOAD_TYPES, pasteTypes: SUPPORTED_PASTE_TYPES })
 );
@@ -306,10 +320,13 @@ app.post('/api/gtmengineer/generate', async (c) => {
   const store = getStore();
   const playbooks = await generateGtmSystem(store.signals.slice(0, 5));
   const saved = playbooks.map((p) => addPlaybook(p));
+  const gtmLive = Boolean(process.env.GTMENGINEER_API_KEY && process.env.GTMENGINEER_API_URL);
   return c.json({
     playbooks: saved,
-    poweredBy: 'gtmengineer.dev',
-    message: 'GTMengineer.dev powers our GTM System Generator'
+    poweredBy: gtmLive ? 'gtmengineer.dev' : 'simulated',
+    message: gtmLive
+      ? 'Generated via GTMengineer.dev'
+      : 'Simulated GTM System Generator — GTMengineer.dev integration pending'
   });
 });
 
@@ -336,6 +353,11 @@ app.post('/api/gtm/generate', async (c) => {
   };
 
   const saved = addPlaybook(playbook);
+  emitProofEvent(
+    'GTM System Generated',
+    { playbookId: saved.id, signalsUsed: topSignals.length, topSignalType: topSignals[0]?.signalType },
+    WORKSPACE_ID
+  );
   return c.json({
     playbook: saved,
     signalsUsed: topSignals.map((s) => ({ id: s.id, quote: s.quote, proofScore: s.proofScore, signalType: s.signalType })),

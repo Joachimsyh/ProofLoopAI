@@ -140,31 +140,12 @@ function parseConversationsPayload(payload: unknown): UnifyConversation[] {
 }
 
 /** Fetch conversations from Unify / Mitel API */
+/**
+ * Deprecated live path: UnifyGTM has no "conversations" endpoint — that was a
+ * Mitel CloudLink mismatch. Corroba's proof corpus now comes from uploads + demo
+ * data, and Unify is integrated via the Analytics API (see unify-analytics.ts).
+ * These demo conversations remain as sample proof sources for the RAG index.
+ */
 export async function fetchUnifyConversations(): Promise<UnifyConversationsResponse> {
-  if (!isUnifyConfigured()) {
-    return { conversations: DEMO_UNIFY_CONVERSATIONS, source: 'demo', total: DEMO_UNIFY_CONVERSATIONS.length };
-  }
-
-  const baseUrl = getUnifyBaseUrl();
-  const res = await fetch(`${baseUrl}/conversations`, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${process.env.UNIFY_API_KEY}`,
-      Accept: 'application/json'
-    }
-  });
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => res.statusText);
-    throw new Error(`Unify conversations API error (${res.status}): ${errText}`);
-  }
-
-  const payload = await res.json();
-  const conversations = parseConversationsPayload(payload);
-
-  if (conversations.length === 0) {
-    return { conversations: DEMO_UNIFY_CONVERSATIONS, source: 'demo', total: DEMO_UNIFY_CONVERSATIONS.length };
-  }
-
-  return { conversations, source: 'unify', total: conversations.length };
+  return { conversations: DEMO_UNIFY_CONVERSATIONS, source: 'demo', total: DEMO_UNIFY_CONVERSATIONS.length };
 }
