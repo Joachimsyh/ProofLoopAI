@@ -20,9 +20,9 @@ function DiscoverySummary({ rag, signalCount }: { rag: DiscoveryRagMeta; signalC
 
   const modeLabel =
     rag.mode === 'demo'
-      ? 'Scanned pre-loaded demo data'
+      ? 'Scanned built-in sample data'
       : rag.indexedChunks > 0
-        ? 'Analyzed your content + RAG'
+        ? 'Analyzed your content with smart matching'
         : 'Analyzed pasted content';
 
   return (
@@ -36,10 +36,10 @@ function DiscoverySummary({ rag, signalCount }: { rag: DiscoveryRagMeta; signalC
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="RAG" value={rag.ragUsed ? 'Active' : 'Off'} highlight={rag.ragUsed} />
-        <Stat label="Demo match" value={rag.demoDataMatched ? 'Yes' : 'No'} highlight={rag.demoDataMatched} />
+        <Stat label="Smart match" value={rag.ragUsed ? 'Active' : 'Off'} highlight={rag.ragUsed} />
+        <Stat label="Sample match" value={rag.demoDataMatched ? 'Yes' : 'No'} highlight={rag.demoDataMatched} />
         <Stat label="Sources used" value={String(rag.chunksRetrieved)} />
-        <Stat label="New chunks" value={rag.indexedChunks > 0 ? String(rag.indexedChunks) : '—'} />
+        <Stat label="New content" value={rag.indexedChunks > 0 ? String(rag.indexedChunks) : '—'} />
       </div>
 
       {rag.chunks.length > 0 && (
@@ -49,7 +49,7 @@ function DiscoverySummary({ rag, signalCount }: { rag: DiscoveryRagMeta; signalC
             onClick={() => setShowSources((v) => !v)}
             className="flex w-full items-center justify-between rounded-lg border border-border bg-card/50 px-4 py-2.5 text-sm text-foreground hover:bg-muted/40 transition-colors"
           >
-            <span>{showSources ? 'Hide' : 'Show'} sources RAG retrieved ({rag.chunks.length})</span>
+            <span>{showSources ? 'Hide' : 'Show'} related sources ({rag.chunks.length})</span>
             <span className="text-muted-foreground">{showSources ? '▲' : '▼'}</span>
           </button>
 
@@ -185,16 +185,15 @@ export default function DiscoveryPage() {
       <div>
         <h1 className="text-3xl font-bold gradient-text">Proof Discovery</h1>
         <p className="text-muted-foreground mt-2">
-          Upload documents, paste text, or hit Discover with an empty box to scan pre-loaded demo data.
+          Upload documents, paste text, or hit Discover with an empty box to scan built-in sample data.
         </p>
       </div>
 
       {supported && (
         <Card className="border-primary/30 bg-primary/5 space-y-3">
-          <Badge className="bg-primary/20 text-primary">RAG + Upload Pipeline Active</Badge>
+          <Badge className="bg-primary/20 text-primary">Smart Discovery Active</Badge>
           <p className="text-sm text-muted-foreground">
-            Upload/paste indexes your content, then RAG retrieves similar demo-data to guide extraction.
-            No input? We scan the <code className="text-primary/90">demo-data/</code> folder automatically.
+            Upload or paste customer content to find trust signals. No input? We scan built-in sample data automatically.
           </p>
           <div className="grid gap-3 md:grid-cols-3">
             {Object.entries(supported.uploads).map(([key, val]) => (
@@ -262,7 +261,7 @@ export default function DiscoveryPage() {
             {uploadStatus === 'uploading' ? (
               <div className="space-y-3">
                 <div className="mx-auto h-10 w-10 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                <p className="text-sm text-primary font-medium">Analyzing document with RAG...</p>
+                <p className="text-sm text-primary font-medium">Analyzing your document…</p>
               </div>
             ) : (
               <>
@@ -306,7 +305,7 @@ export default function DiscoveryPage() {
 
           {!hasPaste && (
             <div className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-xs text-violet-200">
-              No text needed — click Discover to pull trust signals from the pre-loaded demo-data folder.
+              No text needed — click Discover to scan built-in sample customer proof.
             </div>
           )}
 
@@ -327,7 +326,7 @@ export default function DiscoveryPage() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-semibold text-lg">Discovered Signals ({results.length})</h2>
             {lastMode === 'demo' && (
-              <Badge className="bg-violet-500/20 text-violet-300">From demo-data folder</Badge>
+              <Badge className="bg-violet-500/20 text-violet-300">From sample data</Badge>
             )}
           </div>
           <div className="grid gap-4 lg:grid-cols-2">

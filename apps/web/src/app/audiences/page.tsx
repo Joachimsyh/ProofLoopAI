@@ -72,7 +72,7 @@ export default function AudiencesPage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold gradient-text">Audience Expansion</h1>
-          <p className="text-muted-foreground mt-2">RAG-powered lookalike ICPs from Unify conversations API.</p>
+          <p className="text-muted-foreground mt-2">Discover lookalike audiences from your customer conversations.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={ingest} disabled={ingesting}>
@@ -84,7 +84,7 @@ export default function AudiencesPage() {
 
       <Card className="border-primary/30 bg-primary/5 space-y-3">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge className="bg-primary/20 text-primary">Unify RAG Pipeline</Badge>
+          <Badge className="bg-primary/20 text-primary">Unify Pipeline</Badge>
           {ragStatus && (
             <>
               <Badge className="bg-secondary text-muted-foreground">{ragStatus.chunks} chunks indexed</Badge>
@@ -96,12 +96,13 @@ export default function AudiencesPage() {
           )}
         </div>
         <p className="text-xs text-muted-foreground">
-          API: <code className="text-primary">{ragStatus?.unifyBaseUrl ?? 'https://chat.eu.api.mitel.io/2017-09-01'}/conversations</code>
-          {' '}· Auth: <code className="text-primary">Bearer &lt;UNIFY_API_KEY&gt;</code>
+          {ragStatus?.unifyConfigured
+            ? 'Connected to Unify — using live conversation data.'
+            : 'Using demo conversation data — connect Unify in Settings for live data.'}
         </p>
         <p className="text-xs text-primary font-medium mb-1">Source Proof Signal</p>
         <p className="text-sm italic">&ldquo;{proofQuote}&rdquo;</p>
-        <Badge className="bg-secondary text-muted-foreground">Powered by: {poweredBy === 'unify' ? 'Unify Live' : poweredBy === 'rag' ? 'RAG + Demo' : 'Demo Mode'}</Badge>
+        <Badge className="bg-secondary text-muted-foreground">Powered by: {poweredBy === 'unify' ? 'Unify' : poweredBy === 'rag' ? 'Smart search' : 'Demo mode'}</Badge>
       </Card>
 
       <Card className="space-y-3">

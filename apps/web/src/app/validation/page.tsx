@@ -66,7 +66,6 @@ export default function ValidationPage() {
         <div className="flex flex-wrap items-center gap-2">
           <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">Faxxing</Badge>
           <Badge className="bg-secondary text-muted-foreground">Mode: {faxxingMode}</Badge>
-          <Badge className="bg-secondary text-muted-foreground">API: POST /api/faxxing/validate</Badge>
         </div>
         <p className="text-sm text-muted-foreground">
           Scans: {platforms.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(' · ')}
