@@ -1,16 +1,5 @@
-function resolveApiBase(): string {
-  const fromPublic = process.env.NEXT_PUBLIC_API_URL?.trim();
-  if (fromPublic) return fromPublic.replace(/\/$/, '');
-  const fromServer = process.env.API_URL?.trim();
-  if (fromServer) return fromServer.replace(/\/$/, '');
-  return 'http://localhost:3001';
-}
-
-const API_BASE = resolveApiBase();
-
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const url = path.startsWith('http') ? path : `${API_BASE}${path}`;
-  const res = await fetch(url, {    ...options,
+  const res = await fetch(path, {    ...options,
     headers: {
       ...(options?.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
       ...options?.headers
